@@ -1,0 +1,31 @@
+{
+  "name": "multi-tenant-api-gateway",
+  "version": "1.0.0",
+  "description": "A multi-tenant API gateway built with open-source tools. It authenticates\r clients, routes their requests to backend microservices, and forwards the\r responses. This repository covers **Objective 1**. Rate limiting, Redis,\r tiered plans and the dashboard come in later objectives.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sakshi-B-G/aadaptive-api-gateway.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sakshi-B-G/aadaptive-api-gateway/issues"
+  },
+  "homepage": "https://github.com/Sakshi-B-G/aadaptive-api-gateway#readme",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "http-proxy-middleware": "^3.0.10",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.1"
+  }
+}

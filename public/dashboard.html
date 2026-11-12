@@ -1,0 +1,158 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Tenant API Gateway — Admin Console</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }
+    h1 { margin: 0 0 6px; font-size: 1.5rem; color: #38bdf8; }
+    p.sub { margin: 0 0 24px; color: #94a3b8; font-size: 0.9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+    .card .label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; }
+    .card .value { font-size: 1.8rem; font-weight: 700; margin-top: 6px; color: #f8fafc; }
+    .card .value.warn { color: #f87171; }
+    .card .value.ok { color: #4ade80; }
+    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+    th { background: #0f172a; color: #94a3b8; font-weight: 600; }
+    select, button { background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; }
+    button { background: #0284c7; border-color: #0284c7; cursor: pointer; font-weight: 600; }
+    button:hover { background: #0369a1; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: #334155; }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #16a34a; color: #fff; padding: 10px 16px; border-radius: 8px; display: none; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Multi-Tenant Rate Limiter &amp; API Gateway</h1>
+  <p class="sub">Real-Time Traffic Observability &amp; Dynamic Control Plane (Auto-refreshes every 2s)</p>
+
+  <div class="grid">
+    <div class="card"><div class="label">Total Requests</div><div class="value" id="totalReq">0</div></div>
+    <div class="card"><div class="label">Allowed (2xx)</div><div class="value ok" id="allowedReq">0</div></div>
+    <div class="card"><div class="label">Rate-Limited (429)</div><div class="value warn" id="blockedReq">0</div></div>
+    <div class="card"><div class="label">Active Tenants</div><div class="value" id="tenantCount">0</div></div>
+  </div>
+
+  <h2>Tenant Policies &amp; Dynamic Configuration</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Tenant ID</th>
+        <th>Name</th>
+        <th>API Key</th>
+        <th>Subscription Tier</th>
+        <th>Rate-Limit Algorithm</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="tenantTable"></tbody>
+  </table>
+
+  <h2>Live Per-Tenant Traffic &amp; Quota Breaches</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Tenant ID</th>
+        <th>Total Requests</th>
+        <th>Allowed</th>
+        <th>Throttled (429)</th>
+        <th>Rejection Rate</th>
+      </tr>
+    </thead>
+    <tbody id="metricsTable"></tbody>
+  </table>
+
+  <div id="toast">Policy updated!</div>
+
+  <script>
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => (t.style.display = 'none'), 2500);
+    }
+
+    async function updatePolicy(tenantId) {
+      const tier = document.getElementById(`tier-${tenantId}`).value;
+      const algorithm = document.getElementById(`algo-${tenantId}`).value;
+      const res = await fetch(`/admin/tenants/${tenantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier, algorithm }),
+      });
+      if (res.ok) {
+        showToast(`Updated ${tenantId} → ${tier} (${algorithm})`);
+        loadTenants();
+      }
+    }
+
+    async function loadTenants() {
+      const res = await fetch('/admin/tenants');
+      const data = await res.json();
+      const tenants = data.tenants || [];
+      document.getElementById('tenantCount').textContent = tenants.length;
+
+      const tbody = document.getElementById('tenantTable');
+      tbody.innerHTML = tenants.map(t => `
+        <tr>
+          <td><strong>${t.tenant_id}</strong></td>
+          <td>${t.name}</td>
+          <td><code>${t.api_key}</code></td>
+          <td>
+            <select id="tier-${t.tenant_id}">
+              <option value="free" ${t.tier === 'free' ? 'selected' : ''}>free (60/min, burst 20)</option>
+              <option value="premium" ${t.tier === 'premium' ? 'selected' : ''}>premium (300/min, burst 60)</option>
+              <option value="enterprise" ${t.tier === 'enterprise' ? 'selected' : ''}>enterprise (1000/min, burst 200)</option>
+            </select>
+          </td>
+          <td>
+            <select id="algo-${t.tenant_id}">
+              <option value="sliding_window" ${t.algorithm === 'sliding_window' ? 'selected' : ''}>Sliding Window (Lua)</option>
+              <option value="token_bucket" ${t.algorithm === 'token_bucket' ? 'selected' : ''}>Token Bucket (Lua)</option>
+            </select>
+          </td>
+          <td><button onclick="updatePolicy('${t.tenant_id}')">Apply Live</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadMetrics() {
+      const res = await fetch('/metrics');
+      const data = await res.json();
+      const byTenant = data.tenants || {};
+
+      let total = 0, blocked = 0;
+      const rows = Object.entries(byTenant).map(([id, m]) => {
+        const reqs = m.totalRequests || 0;
+        const rej = m.rateLimited429 || 0;
+        const ok = Math.max(0, reqs - rej);
+        total += reqs;
+        blocked += rej;
+        const pct = reqs > 0 ? ((rej / reqs) * 100).toFixed(1) + '%' : '0.0%';
+        return `
+          <tr>
+            <td><strong>${id}</strong></td>
+            <td>${reqs}</td>
+            <td style="color:#4ade80">${ok}</td>
+            <td style="color:#f87171">${rej}</td>
+            <td><span class="badge">${pct}</span></td>
+          </tr>
+        `;
+      });
+
+      document.getElementById('totalReq').textContent = total;
+      document.getElementById('blockedReq').textContent = blocked;
+      document.getElementById('allowedReq').textContent = Math.max(0, total - blocked);
+      document.getElementById('metricsTable').innerHTML = rows.length
+        ? rows.join('')
+        : '<tr><td colspan="5" style="color:#94a3b8">No gateway traffic recorded yet. Run k6 or send requests to /api/*</td></tr>';
+    }
+
+    loadTenants();
+    loadMetrics();
+    setInterval(loadMetrics, 2000);
+  </script>
+</body>
+</html>
