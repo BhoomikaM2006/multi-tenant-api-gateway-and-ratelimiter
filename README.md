@@ -28,3 +28,10 @@ Tested with **35 concurrent virtual users** across three isolated tenant tiers (
 | **`tenant-pro`** | Token Bucket (`300/min`, burst `60`) | `4 req/s` (80) | **80** | **0** | `9.47 ms` | `17.01 ms` |
 | **`tenant-ent`** | Sliding Window (`1000/min`) | `10 req/s` (200) | **200** | **0** | `9.72 ms` | `16.37 ms` |
 | **Total** | **35 VUs** | **19.05 req/s** | **340** | **41** | **`9.47 ms`** | **`17.01 ms`** |
+
+## Key Features & Verification
+
+- **Multi-Tenant Authentication & Key Rotation:** API key verification (`x-api-key`) with one-click live credential revocation via the admin dashboard.
+- **Distributed Rate Limiting:** Atomic Redis enforcement supporting `sliding_window` and `token_bucket` algorithms across `Free`, `Pro`, and `Enterprise` tiers, plus strict per-route limits (`/api/login`).
+- **Live Observability Dashboard:** Real-time Chart.js throughput/status visualizations, Prometheus metrics (`/metrics/prometheus`), and live admin controls at `/dashboard`.
+- **Automated Testing & Load Benchmarks:** Includes a 10-scenario Postman collection (`gateway-postman-collection.json`) and multi-tenant `k6` load-testing scripts (`loadtest.js`).
