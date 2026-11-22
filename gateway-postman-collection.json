@@ -1,0 +1,73 @@
+﻿{
+  "info": {
+    "name": "Multi-Tenant API Gateway - Full Test Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check (Public)",
+      "request": { "method": "GET", "url": "http://localhost:3000/health" }
+    },
+    {
+      "name": "2. Auth Fail - Missing API Key (401)",
+      "request": { "method": "GET", "url": "http://localhost:3000/api/users" }
+    },
+    {
+      "name": "3. Auth Fail - Invalid API Key (401)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "x-api-key", "value": "key_invalid_999" }],
+        "url": "http://localhost:3000/api/users"
+      }
+    },
+    {
+      "name": "4. Free Tenant - Valid Request (200)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "x-api-key", "value": "sk_tenant_free_2e014207a62fcc58" }],
+        "url": "http://localhost:3000/api/users"
+      }
+    },
+    {
+      "name": "5. Free Tenant - Strict Endpoint /api/login (10/min)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "x-api-key", "value": "sk_tenant_free_2e014207a62fcc58" }],
+        "url": "http://localhost:3000/api/login"
+      }
+    },
+    {
+      "name": "6. Pro Tenant - Token Bucket Burst (200)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "x-api-key", "value": "" }],
+        "url": "http://localhost:3000/api/users"
+      }
+    },
+    {
+      "name": "7. Enterprise Tenant - High Quota (200)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "x-api-key", "value": "key_ent_789" }],
+        "url": "http://localhost:3000/api/users"
+      }
+    },
+    {
+      "name": "8. Admin - List All Tenants & Live Quotas",
+      "request": { "method": "GET", "url": "http://localhost:3000/admin/tenants" }
+    },
+    {
+      "name": "9. Admin - Switch Tenant Algorithm to Token Bucket",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"algorithm\": \"token-bucket\"}" },
+        "url": "http://localhost:3000/admin/tenants/tenant-free"
+      }
+    },
+    {
+      "name": "10. Metrics - Prometheus Scrape Output",
+      "request": { "method": "GET", "url": "http://localhost:3000/metrics/prometheus" }
+    }
+  ]
+}
