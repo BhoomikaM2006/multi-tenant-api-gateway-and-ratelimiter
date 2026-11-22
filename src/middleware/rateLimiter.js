@@ -1,5 +1,5 @@
 ﻿const redis = require('../config/redis');
-const tiers = require('../config/tiers');
+const { getPolicyForEndpoint } = require('../config/tiers');
 
 const SLIDING_WINDOW_LUA = `
 local key = KEYS[1]
@@ -91,8 +91,8 @@ async function evaluateLimit(algorithm, policy, redisKey, now) {
 
 async function rateLimiterMiddleware(req, res, next) {
   const { tenantId, tier, algorithm } = req.tenant;
-  const policy = tiers[tier] || tiers.free;
   const endpoint = req.path || '/';
+  const policy = getPolicyForEndpoint(tier, endpoint);
   const redisKey = `ratelimit:${tenantId}:${tier}:${endpoint}`;
   const now = Date.now();
 
@@ -101,7 +101,6 @@ async function rateLimiterMiddleware(req, res, next) {
     try {
       outcome = await evaluateLimit(algorithm, policy, redisKey, now);
     } catch (evalErr) {
-      // If algorithm was switched live (ZSET <-> HASH), clear old key structure and retry once
       if (evalErr.message && evalErr.message.includes('WRONGTYPE')) {
         await redis.del(redisKey);
         outcome = await evaluateLimit(algorithm, policy, redisKey, now);
@@ -116,6 +115,7 @@ async function rateLimiterMiddleware(req, res, next) {
     res.setHeader('X-RateLimit-Remaining', remaining);
     res.setHeader('X-RateLimit-Algorithm', algorithm);
     res.setHeader('X-RateLimit-Scope', endpoint);
+    res.setHeader('X-RateLimit-Policy', policy.policySource);
 
     if (!allowed) {
       res.setHeader('Retry-After', resetOrRetry);
@@ -125,6 +125,7 @@ async function rateLimiterMiddleware(req, res, next) {
         tier,
         algorithm,
         endpoint,
+        policy: policy.policySource,
         retryAfterSeconds: resetOrRetry,
       });
     }

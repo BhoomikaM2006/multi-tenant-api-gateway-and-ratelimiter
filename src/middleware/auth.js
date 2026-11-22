@@ -8,11 +8,19 @@ async function authMiddleware(req, res, next) {
   }
 
   const cacheKey = `tenant_auth:${apiKey}`;
+  const graceKey = `tenant_grace:${apiKey}`;
 
   try {
     const cached = await redis.get(cacheKey);
     if (cached) {
       req.tenant = JSON.parse(cached);
+      return next();
+    }
+
+    const graceCached = await redis.get(graceKey);
+    if (graceCached) {
+      req.tenant = JSON.parse(graceCached);
+      res.setHeader('X-API-Key-Deprecated', 'true');
       return next();
     }
 

@@ -5,7 +5,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const authMiddleware = require('./middleware/auth');
 const rateLimiterMiddleware = require('./middleware/rateLimiter');
-const { metricsMiddleware, getMetrics } = require('./middleware/metrics');
+const { metricsMiddleware, getMetrics, getPrometheusMetrics } = require('./middleware/metrics');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
@@ -20,13 +20,14 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/metrics', getMetrics);
+app.get('/metrics/prometheus', getPrometheusMetrics);
 
 // Live Administrative Dashboard
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 
-// Control-Plane Admin API (mounted before proxy so express.json() doesn't interfere with proxied streams)
+// Control-Plane Admin API
 app.use('/admin', express.json(), adminRoutes);
 
 // Protected multi-tenant API proxy pipeline
@@ -51,4 +52,5 @@ app.use(
 app.listen(PORT, () => {
   console.log(`API Gateway listening on http://localhost:${PORT}`);
   console.log(`Live Admin Dashboard available at http://localhost:${PORT}/dashboard`);
+  console.log(`Prometheus metrics available at http://localhost:${PORT}/metrics/prometheus`);
 });
